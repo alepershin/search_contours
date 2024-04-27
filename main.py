@@ -82,8 +82,8 @@ def draw_rectangles(image, contours, min_contour_area, max_contour_area):
             ch = classify_contour(contour, image)
             # Обеспечим, чтобы текст не выходил за верхнюю границу изображения
             text_y = y - 10 if y - 10 > 10 else y + h + 20
-            # Выводим текст красным цветом для лучшей видимости
-            cv2.putText(result, ch, (x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            if show_results_on_image:
+                cv2.putText(result, ch, (x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
     return result
 
 st.title("Обнаружение контуров рукописных символов")
@@ -96,6 +96,7 @@ if uploaded_image:
     threshold = st.slider("Порог яркости", 0, 255, 128)
     min_contour_area = st.slider("Минимальная площадь контура", 0, 200, 100)
     max_contour_area = st.slider("Максимальная площадь контура", 20000, 40000, 30000)
+    show_results_on_image = st.checkbox("Показать результат распознавания на картинке")
 
     preprocessed_image = preprocess_image(image, threshold)
 
