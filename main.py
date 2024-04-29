@@ -3,6 +3,11 @@ import numpy as np
 import streamlit as st
 
 from keras.models import load_model
+from PIL import ImageFont, ImageDraw, Image
+
+# Загружаем шрифт
+font_path = 'FreeSans.ttf'
+font = ImageFont.truetype(font_path, 24)
 
 # Загрузка моделей
 model_28_28 = load_model('model_28_28.h5')
@@ -63,6 +68,29 @@ def classify_contour(contour, image):
 
     return ch
 
+def predict_and_store_contours(image, contours):
+    predictions = []  # Список для хранения информации о контурах и предсказаниях
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)  # Получим координаты контура
+        area = cv2.contourArea(contour)
+
+        if min_contour_area < area < max_contour_area:
+            cropped_image = image[y:y + h, x:x + w]
+
+            symbol = classify_contour(contour, image)
+
+            # Сохраняем информацию в словарь
+            contour_info = {
+                "x": x,
+                "y": y,
+                "w": w,
+                "h": h,
+                "symbol": symbol
+            }
+            predictions.append(contour_info)
+
+    return predictions
+
 def preprocess_image(image, threshold):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     _, binary = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY_INV)
@@ -72,18 +100,35 @@ def detect_contours(image):
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return contours
 
-def draw_rectangles(image, contours, min_contour_area, max_contour_area):
+def draw_predictions_on_image(image, predictions, font_path='FreeSans.ttf'):
+    # Загрузка шрифта, который поддерживает отображение кириллицы
+    font_size = 48  # Можно регулировать размер шрифта в зависимости от изображения
+    font = ImageFont.truetype(font_path, font_size)
+
+    # Конвертирование изображения OpenCV в формат PIL
+    image_pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    draw = ImageDraw.Draw(image_pil)
+
+    # Перебираем элементы массива predictions и отображаем текст
+    for item in predictions:
+        x, y, w, h = item['x'], item['y'], item['w'], item['h']
+        symbol = item['symbol']
+
+        # Добавьте смещение или подстройте координаты, где будет нарисован текст
+        text_position = (x, y - font_size if y - font_size > font_size else y + h)
+
+        # Вывод текста на изображение с использованием шрифта
+        draw.text(text_position, symbol, font=font, fill=(255,255,0,0))  # Цвет текста: красный
+
+    # Конвертируем обратно в формат OpenCV и возвращаем изображение
+    return cv2.cvtColor(np.array(image_pil), cv2.COLOR_RGB2BGR)
+
+def draw_rectangles(image, predictions):
     result = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if min_contour_area < area < max_contour_area:
-            x, y, w, h = cv2.boundingRect(contour)
-            cv2.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            ch = classify_contour(contour, image)
-            # Обеспечим, чтобы текст не выходил за верхнюю границу изображения
-            text_y = y - 10 if y - 10 > 10 else y + h + 20
-            if show_results_on_image:
-                cv2.putText(result, ch, (x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+    for item in predictions:
+        x, y, w, h = item['x'], item['y'], item['w'], item['h']
+        cv2.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
     return result
 
 st.title("Обнаружение контуров рукописных символов")
@@ -102,7 +147,13 @@ if uploaded_image:
 
     contours = detect_contours(preprocessed_image)
 
-    result_image = draw_rectangles(preprocessed_image, contours, min_contour_area, max_contour_area)
+    contour_predictions = predict_and_store_contours(preprocessed_image, contours)
+
+    result_image = draw_rectangles(preprocessed_image, contour_predictions)
+
+    # Используем функцию для отрисовки результатов распознавания на изображении
+    if show_results_on_image:
+        result_image = draw_predictions_on_image(result_image, contour_predictions, 'FreeSans.ttf')
 
     st.subheader("Контуры")
     st.image(result_image)
