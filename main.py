@@ -48,19 +48,40 @@ def classify_contour(contour, image):
 
     # Определяем размеры изображения и выбираем модель
     if ratio < 2:
-        resized_dim, model_info = (28, 28), models['model_28_28']
+        frame_size = (28, 28)
+        symbols = symbols_28x28
+        model = model_28_28
     elif ratio < 4:
-        resized_dim, model_info = (56, 28), models['model_56_28']
+        frame_size = (56, 28)
+        symbols = symbols_56x28
+        model = model_56_28
     else:
-        resized_dim, model_info = (112, 28), models['model_112_28']
-    model, symbols = model_info
+        frame_size = (112, 28)
+        symbols = symbols_112x28
+        model = model_112_28
 
-    # Масштабирование и нормализация изображения
-    resized_image = cv2.resize(cropped_image, resized_dim, interpolation=cv2.INTER_AREA) / 255.0
-    resized_image = resized_image.reshape(1, *resized_dim, 1)
+    # Вписываем изображение в выбранную "рамку"
+    # Масштабируем изображение, сохраняя пропорции
+    scale = min(frame_size[0] / w, frame_size[1] / h)
+    new_size = (int(w * scale), int(h * scale))
+    resized = cv2.resize(cropped_image, new_size, interpolation=cv2.INTER_AREA)
 
-    # Предсказание
-    prediction = model.predict(resized_image)
+    # Создаем новое изображение с "рамкой", заполненной нулями (черным цветом)
+    new_image = np.zeros((frame_size[1], frame_size[0]), dtype=np.uint8)
+
+    # Вычисляем позицию для центрирования масштабированного изображения
+    top = (frame_size[1] - new_size[1]) // 2
+    left = (frame_size[0] - new_size[0]) // 2
+
+    # Вставляем масштабированное изображение в центр "рамки"
+    new_image[top:top + new_size[1], left:left + new_size[0]] = resized
+
+    # Подготавливаем изображение для предсказания
+    new_image = new_image / 255.0   # Нормализация
+    new_image = new_image.reshape(1, frame_size[1], frame_size[0], 1)   # Добавляем размерность batch и каналов
+
+    # Классифицируем изображение
+    prediction = model.predict(new_image)
     class_id = np.argmax(prediction)
 
     # Получение соответствующего символа
@@ -90,7 +111,6 @@ def predict_and_store_contours(image, contours):
             predictions.append(contour_info)
 
     return predictions
-
 
 def preprocess_image(image, threshold, target_width):
     # Сначала определим коэффициент масштабирования
