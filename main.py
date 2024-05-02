@@ -3,6 +3,11 @@ import numpy as np
 import streamlit as st
 
 from keras.models import load_model
+from PIL import ImageFont, ImageDraw, Image
+
+# Загружаем шрифт
+font_path = 'FreeSans.ttf'
+font = ImageFont.truetype(font_path, 24)
 
 # Загрузка моделей
 model_28_28 = load_model('model_28_28.h5')
@@ -63,30 +68,111 @@ def classify_contour(contour, image):
 
     return ch
 
-def preprocess_image(image, threshold):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+def predict_and_store_contours(image, contours):
+    predictions = []  # Список для хранения информации о контурах и предсказаниях
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)  # Получим координаты контура
+        area = cv2.contourArea(contour)
+
+        if min_contour_area < area < max_contour_area:
+            cropped_image = image[y:y + h, x:x + w]
+
+            symbol = classify_contour(contour, image)
+
+            # Сохраняем информацию в словарь
+            contour_info = {
+                "x": x,
+                "y": y,
+                "w": w,
+                "h": h,
+                "symbol": symbol
+            }
+            predictions.append(contour_info)
+
+    return predictions
+
+
+def preprocess_image(image, threshold, target_width):
+    # Сначала определим коэффициент масштабирования
+    # Это соотношение между желаемой шириной и текущей шириной изображения
+    scale_ratio = target_width / image.shape[1]
+
+    # Изменим размер изображения, чтобы ширина соответствовала target_width
+    # Высота изменится пропорционально, чтобы сохранить соотношение сторон изображения
+    new_size = (target_width, int(image.shape[0] * scale_ratio))
+    resized_image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
+
+    # Затем преобразуем изображение в оттенки серого
+    gray = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
+
+    # Применяем пороговое преобразование для получения бинарного изображения
     _, binary = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY_INV)
+
     return binary
 
 def detect_contours(image):
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return contours
 
-def draw_rectangles(image, contours, min_contour_area, max_contour_area):
+def draw_predictions_on_image(image, predictions, font_path='FreeSans.ttf'):
+    # Загрузка шрифта, который поддерживает отображение кириллицы
+    font_size = 48  # Можно регулировать размер шрифта в зависимости от изображения
+    font = ImageFont.truetype(font_path, font_size)
+
+    # Конвертирование изображения OpenCV в формат PIL
+    image_pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    draw = ImageDraw.Draw(image_pil)
+
+    # Перебираем элементы массива predictions и отображаем текст
+    for item in predictions:
+        x, y, w, h = item['x'], item['y'], item['w'], item['h']
+        symbol = item['symbol']
+
+        # Добавьте смещение или подстройте координаты, где будет нарисован текст
+        text_position = (x, y - font_size if y - font_size > font_size else y + h)
+
+        # Вывод текста на изображение с использованием шрифта
+        draw.text(text_position, symbol, font=font, fill=(255,255,0,0))
+
+    # Конвертируем обратно в формат OpenCV и возвращаем изображение
+    return cv2.cvtColor(np.array(image_pil), cv2.COLOR_RGB2BGR)
+
+def draw_rectangles(image, predictions):
     result = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if min_contour_area < area < max_contour_area:
-            x, y, w, h = cv2.boundingRect(contour)
-            cv2.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            ch = classify_contour(contour, image)
-            # Обеспечим, чтобы текст не выходил за верхнюю границу изображения
-            text_y = y - 10 if y - 10 > 10 else y + h + 20
-            if show_results_on_image:
-                cv2.putText(result, ch, (x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+    for item in predictions:
+        x, y, w, h = item['x'], item['y'], item['w'], item['h']
+        cv2.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
     return result
 
-st.title("Обнаружение контуров рукописных символов")
+def replace_minus_with_equals(contour_predictions):
+    # Создадим копию списка, чтобы не изменять исходный
+    new_predictions = contour_predictions.copy()
+
+    # Сортируем список по вертикальной (y) координате контуров
+    new_predictions.sort(key=lambda item: (item['y'], item['x']))
+
+    i = 0  # Инициализируем счётчик
+    while i < len(new_predictions) - 1:
+        current_item = new_predictions[i]
+        next_item = new_predictions[i + 1]
+
+        # Проверка: являются ли символы минусами
+        if current_item['symbol'] == next_item['symbol'] == "-":
+            # Проверка: находятся ли минусы на схожем горизонтальном уровне
+            y_diff = abs(current_item['y'] - next_item['y'])
+            if y_diff < some_threshold:  # some_threshold - пороговое значение, подлежащее настройке
+                # Заменяем первый "-" на "="
+                current_item['symbol'] = "="
+                # Удаляем второй "-" из списка
+                del new_predictions[i + 1]
+                # Пропускаем дополнительную итерацию, так как второй минус удален
+                continue
+        i += 1  # Переходим к следующему элементу в списке
+
+    return new_predictions
+
+st.title("Проверка письменных работ по математике")
 
 uploaded_image = st.file_uploader("Загрузите изображение", type=["jpg", "jpeg", "png"])
 
@@ -97,12 +183,23 @@ if uploaded_image:
     min_contour_area = st.slider("Минимальная площадь контура", 0, 200, 100)
     max_contour_area = st.slider("Максимальная площадь контура", 20000, 40000, 30000)
     show_results_on_image = st.checkbox("Показать результат распознавания на картинке")
+    some_threshold = st.slider("Пороговое значение для определения знака равенства", 0, 20, 10)
 
-    preprocessed_image = preprocess_image(image, threshold)
+    # Пользователь может задать ширину изображения
+    target_width = st.slider("Ширина изображения", 400, image.shape[1], 1400)
+    preprocessed_image = preprocess_image(image, threshold, target_width)
 
     contours = detect_contours(preprocessed_image)
 
-    result_image = draw_rectangles(preprocessed_image, contours, min_contour_area, max_contour_area)
+    contour_predictions = predict_and_store_contours(preprocessed_image, contours)
+
+    new_predictions = replace_minus_with_equals(contour_predictions)
+
+    result_image = draw_rectangles(preprocessed_image, new_predictions)
+
+    # Используем функцию для отрисовки результатов распознавания на изображении
+    if show_results_on_image:
+        result_image = draw_predictions_on_image(result_image, contour_predictions, 'FreeSans.ttf')
 
     st.subheader("Контуры")
     st.image(result_image)
