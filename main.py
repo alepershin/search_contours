@@ -93,22 +93,18 @@ def predict_and_store_contours(image, contours):
     predictions = []  # Список для хранения информации о контурах и предсказаниях
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)  # Получим координаты контура
-        area = cv2.contourArea(contour)
 
-        if min_contour_area < area < max_contour_area:
-            cropped_image = image[y:y + h, x:x + w]
+        symbol = classify_contour(contour, image)
 
-            symbol = classify_contour(contour, image)
-
-            # Сохраняем информацию в словарь
-            contour_info = {
-                "x": x,
-                "y": y,
-                "w": w,
-                "h": h,
-                "symbol": symbol
-            }
-            predictions.append(contour_info)
+        # Сохраняем информацию в словарь
+        contour_info = {
+            "x": x,
+            "y": y,
+            "w": w,
+            "h": h,
+            "symbol": symbol
+        }
+        predictions.append(contour_info)
 
     return predictions
 
@@ -166,31 +162,50 @@ def draw_rectangles(image, predictions):
     return result
 
 def replace_minus_with_equals(contour_predictions):
-    # Создадим копию списка, чтобы не изменять исходный
+    # Создаем копию списка, чтобы не изменять исходный
     new_predictions = contour_predictions.copy()
 
-    # Сортируем список по вертикальной (y) координате контуров
-    new_predictions.sort(key=lambda item: (item['y'], item['x']))
+    # Сортируем список сначала по горизонтали (x), затем по вертикали (y)
+    new_predictions.sort(key=lambda item: (item['x'], item['y']))
 
     i = 0  # Инициализируем счётчик
     while i < len(new_predictions) - 1:
         current_item = new_predictions[i]
         next_item = new_predictions[i + 1]
 
-        # Проверка: являются ли символы минусами
+        # Проверяем, являются ли символы минусами
         if current_item['symbol'] == next_item['symbol'] == "-":
-            # Проверка: находятся ли минусы на схожем горизонтальном уровне
-            y_diff = abs(current_item['y'] - next_item['y'])
-            if y_diff < some_threshold:  # some_threshold - пороговое значение, подлежащее настройке
-                # Заменяем первый "-" на "="
+            # Расчет расстояния между верхним краем первого минуса и нижним краем второго
+            vertical_distance = abs(next_item['y'] - (current_item['y'] + current_item['h']))
+
+            # Используем ширину самого большого минуса как пороговое значение для сравнения
+            max_width = max(current_item['w'], next_item['w'])
+
+            # Если вертикальное расстояние меньше ширины самого большого минуса,
+            # считаем минусы расположенными достаточно близко, чтобы их можно было заменить на "="
+            if vertical_distance < max_width:
+                # Замена первого "-" на "="
                 current_item['symbol'] = "="
+                current_item['x'] = min(next_item['x'], current_item['x'])
+                current_item['w'] = max_width
+                current_item['h'] = next_item['y'] - current_item['y'] + next_item['h']
+
                 # Удаляем второй "-" из списка
                 del new_predictions[i + 1]
-                # Пропускаем дополнительную итерацию, так как второй минус удален
+                # Не увеличиваем счетчик, так как второй минус был удален
                 continue
         i += 1  # Переходим к следующему элементу в списке
 
     return new_predictions
+
+def filter_contours_by_size(contours, min_size):
+    filtered_contours = []
+    for contour in contours:
+        _, _, w, h = cv2.boundingRect(contour)  # Получаем линейные размеры контура
+        # Проверяем, соответствует ли контур заданным размерам
+        if w >= min_size or h >= min_size:
+            filtered_contours.append(contour)
+    return filtered_contours
 
 st.title("Проверка письменных работ по математике")
 
@@ -200,18 +215,17 @@ if uploaded_image:
     image = cv2.imdecode(np.frombuffer(uploaded_image.read(), np.uint8), cv2.IMREAD_COLOR)
 
     threshold = st.slider("Порог яркости", 0, 255, 128)
-    min_contour_area = st.slider("Минимальная площадь контура", 0, 200, 100)
-    max_contour_area = st.slider("Максимальная площадь контура", 20000, 40000, 30000)
-    show_results_on_image = st.checkbox("Показать результат распознавания на картинке")
-    some_threshold = st.slider("Пороговое значение для определения знака равенства", 0, 20, 10)
+    min_size = st.slider("Минимальный размер контура", 0, 20, 7)
+    show_results_on_image = st.checkbox("Показать результат распознавания на картинке", value=True)
 
     # Пользователь может задать ширину изображения
     target_width = st.slider("Ширина изображения", 400, image.shape[1], 1400)
     preprocessed_image = preprocess_image(image, threshold, target_width)
 
     contours = detect_contours(preprocessed_image)
+    filtered_contours = filter_contours_by_size(contours, min_size)
 
-    contour_predictions = predict_and_store_contours(preprocessed_image, contours)
+    contour_predictions = predict_and_store_contours(preprocessed_image, filtered_contours)
 
     new_predictions = replace_minus_with_equals(contour_predictions)
 
@@ -219,7 +233,7 @@ if uploaded_image:
 
     # Используем функцию для отрисовки результатов распознавания на изображении
     if show_results_on_image:
-        result_image = draw_predictions_on_image(result_image, contour_predictions, 'FreeSans.ttf')
+        result_image = draw_predictions_on_image(result_image, new_predictions, 'FreeSans.ttf')
 
     st.subheader("Контуры")
     st.image(result_image)
