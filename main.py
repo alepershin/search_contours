@@ -207,6 +207,25 @@ def filter_contours_by_size(contours, min_size):
             filtered_contours.append(contour)
     return filtered_contours
 
+def group_by_lines(contour_predictions):
+    # Сортировка контуров по координате y
+    contour_predictions.sort(key=lambda item: (item['y'], item['x']))
+
+    # Задаем начальные условия для первой строки
+    lines = [[]]
+    current_line_y = contour_predictions[0]['y'] + contour_predictions[0]['h']
+
+    for item in contour_predictions:
+        if item['y'] > current_line_y:
+            # Начало новой строки
+            lines.append([])
+        # Добавление текущего символа в текущую строку
+        lines[-1].append(item)
+        if item['y'] + item['h'] > current_line_y:
+            current_line_y = item['y'] + item['h']
+
+    return lines
+
 st.title("Проверка письменных работ по математике")
 
 uploaded_image = st.file_uploader("Загрузите изображение", type=["jpg", "jpeg", "png"])
@@ -234,6 +253,24 @@ if uploaded_image:
     # Используем функцию для отрисовки результатов распознавания на изображении
     if show_results_on_image:
         result_image = draw_predictions_on_image(result_image, new_predictions, 'FreeSans.ttf')
+
+    lines_of_contours = group_by_lines(new_predictions)
+
+    for line in lines_of_contours:
+        xmin = target_width
+        ymin = result_image.shape[1]
+        xmax = 0
+        ymax = 0
+        for cnt in line:
+            if cnt['x'] < xmin:
+                xmin = cnt['x']
+            if cnt['y'] < ymin:
+                ymin = cnt['y']
+            if cnt['x'] + cnt['w'] > xmax:
+                xmax = cnt['x'] + cnt['w']
+            if cnt['y'] + cnt['h'] > ymax:
+                ymax = cnt['y'] + cnt['h']
+        cv2.rectangle(result_image, (xmin, ymin), (xmax, ymax), (255, 255, 0), 2)
 
     st.subheader("Контуры")
     st.image(result_image)
