@@ -226,6 +226,103 @@ def group_by_lines(contour_predictions):
 
     return lines
 
+def find_nearest_contour_below(current_contour, contour_predictions):
+    # Извлечение координат текущего контура
+    current_x, current_y, current_w, current_h = current_contour['x'], current_contour['y'], current_contour['w'], current_contour['h']
+    current_bottom = current_y + current_h
+    nearest_contour = None
+    min_distance = float('inf')  # Начальное значение минимального расстояния устанавливаем очень большим
+
+    for contour in contour_predictions:
+        # Извлечение координат потенциального контура, который находится ниже
+        x, y, w, h = contour['x'], contour['y'], contour['w'], contour['h']
+        # Проверяем, что потенциальный контур находится ниже текущего
+        if y > current_bottom:
+            # Находим центры контуров по оси X
+            current_center_x = current_x + current_w / 2
+            contour_center_x = x + w / 2
+
+            # Если центры контуров по оси X близки, проверяем расстояние по вертикали
+            if abs(current_center_x - contour_center_x) < max(current_w, w) / 2:
+                distance = y - current_bottom  # Расстояние от нижней границы текущего контура до верхней границы потенциального
+                # Если это расстояние меньше, чем текущее минимальное, обновляем ближайший контур
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_contour = contour
+
+    return nearest_contour
+
+def find_nearest_contour_above(current_contour, contour_predictions):
+    # Извлечение координат текущего контура
+    current_x, current_y, current_w, _ = current_contour['x'], current_contour['y'], current_contour['w'], current_contour['h']
+    nearest_contour = None
+    min_distance = float('inf')  # начальное значение минимального расстояния
+
+    for contour in contour_predictions:
+        # Извлечение координат потенциального контура, который находится выше
+        x, y, w, h = contour['x'], contour['y'], contour['w'], contour['h']
+        contour_bottom = y + h
+        # Проверка, что потенциальный контур находится выше текущего
+        if contour_bottom < current_y:
+            # Находим центры контуров по оси X
+            current_center_x = current_x + current_w / 2
+            contour_center_x = x + w / 2
+
+            # Если центры контуров по оси X близки, проверяем расстояние по вертикали
+            if abs(current_center_x - contour_center_x) < max(current_w, w) / 2:
+                distance = current_y - contour_bottom  # Вертикальное расстояние от текущего до нижней границы потенциального
+                # Если это расстояние меньше текущего минимального, обновляем ближайший контур
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_contour = contour
+
+    return nearest_contour
+
+def find_nearest_contour_left(current_contour, contour_predictions):
+    current_x, current_y, current_w, current_h = current_contour['x'], current_contour['y'], current_contour['w'], current_contour['h']
+    current_left_edge = current_x
+
+    nearest_contour = None
+    min_distance = float('inf')
+
+    for contour in contour_predictions:
+        if contour is not current_contour:
+            x, y, w, h = contour['x'], contour['y'], contour['w'], contour['h']
+            contour_right_edge = x + w
+            # Проверка, что потенциальный контур находится слева от текущего
+            if contour_right_edge < current_left_edge:
+                # Вычисляем горизонтальное расстояние от текущего контура до правого края потенциального
+                distance = current_left_edge - contour_right_edge
+                # Проверка вертикального перекрытия на границе
+                vertical_overlap = current_y < (y + h) and (current_y + current_h) > y
+                if distance < min_distance and vertical_overlap:
+                    min_distance = distance
+                    nearest_contour = contour
+
+    return nearest_contour
+
+def find_nearest_contour_right(current_contour, contour_predictions):
+    current_x, current_y, current_w, current_h = current_contour['x'], current_contour['y'], current_contour['w'], current_contour['h']
+    current_right_edge = current_x + current_w
+
+    nearest_contour = None
+    min_distance = float('inf')
+
+    for contour in contour_predictions:
+        if contour is not current_contour:
+            x, y, w, h = contour['x'], contour['y'], contour['w'], contour['h']
+            # Проверка, что потенциальный контур находится справа от текущего
+            if x > current_right_edge:
+                # Вычисляем горизонтальное расстояние от правого края текущего контура до потенциального
+                distance = x - current_right_edge
+                # Проверка вертикального перекрытия
+                vertical_overlap = current_y < (y + h) and (current_y + current_h) > y
+                if distance < min_distance and vertical_overlap:
+                    min_distance = distance
+                    nearest_contour = contour
+
+    return nearest_contour
+
 st.title("Проверка письменных работ по математике")
 
 uploaded_image = st.file_uploader("Загрузите изображение", type=["jpg", "jpeg", "png"])
@@ -255,6 +352,15 @@ if uploaded_image:
         result_image = draw_predictions_on_image(result_image, new_predictions, 'FreeSans.ttf')
 
     lines_of_contours = group_by_lines(new_predictions)
+
+    for line in lines_of_contours:
+        current_contour = contour_predictions[0]
+        below_contour = find_nearest_contour_below(current_contour, contour_predictions)
+
+        if below_contour:
+            print("Ближайший контур ниже: ", below_contour)
+        else:
+            print("Контур ниже не найден.")
 
     for line in lines_of_contours:
         xmin = target_width
