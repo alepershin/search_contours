@@ -97,9 +97,6 @@ def predict_and_store_contours(image, contours):
 
         symbol = classify_contour(contour, image)
 
-        if contains_cyrillic(symbol):
-            continue
-
         # Сохраняем информацию в словарь
         contour_info = {
             "x": x,
