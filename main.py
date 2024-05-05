@@ -224,6 +224,20 @@ def group_by_lines(contour_predictions):
         if item['y'] + item['h'] > current_line_y:
             current_line_y = item['y'] + item['h']
 
+    for i in range(len(lines) - 1):
+        for cnt in lines[i]:
+            if cnt['symbol'] == '-':
+                ch = find_nearest_contour_above(cnt, lines[i])
+                if ch != None and ch['symbol'] != '-' and find_nearest_contour_below(cnt, lines[i]) == None:
+                    for j in lines[i + 1]:
+                        lines[i].append(j)
+                    lines[i + 1] = []
+                    i += 1
+                    break
+
+    # Создаем новый список только с непустыми элементами
+    lines = [line for line in lines if line != []]
+
     return lines
 
 def find_nearest_contour_below(current_contour, contour_predictions):
@@ -332,7 +346,7 @@ if uploaded_image:
 
     threshold = st.slider("Порог яркости", 0, 255, 128)
     min_size = st.slider("Минимальный размер контура", 0, 20, 7)
-    show_results_on_image = st.checkbox("Показать результат распознавания на картинке", value=True)
+    show_results_on_image = st.checkbox("Показать результат распознавания на картинке", value=False)
 
     # Пользователь может задать ширину изображения
     target_width = st.slider("Ширина изображения", 400, image.shape[1], 1400)
