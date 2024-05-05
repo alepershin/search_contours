@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import streamlit as st
+import re
 
 from keras.models import load_model
 from PIL import ImageFont, ImageDraw, Image
@@ -96,6 +97,9 @@ def predict_and_store_contours(image, contours):
 
         symbol = classify_contour(contour, image)
 
+        if contains_cyrillic(symbol):
+            continue
+
         # Сохраняем информацию в словарь
         contour_info = {
             "x": x,
@@ -107,6 +111,9 @@ def predict_and_store_contours(image, contours):
         predictions.append(contour_info)
 
     return predictions
+
+def contains_cyrillic(text):
+    return bool(re.search('[u0400-u04FF]', text))
 
 def preprocess_image(image, threshold, target_width):
     # Сначала определим коэффициент масштабирования
