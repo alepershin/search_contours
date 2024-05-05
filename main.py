@@ -354,15 +354,6 @@ if uploaded_image:
     lines_of_contours = group_by_lines(new_predictions)
 
     for line in lines_of_contours:
-        current_contour = contour_predictions[0]
-        below_contour = find_nearest_contour_below(current_contour, contour_predictions)
-
-        if below_contour:
-            print("Ближайший контур ниже: ", below_contour)
-        else:
-            print("Контур ниже не найден.")
-
-    for line in lines_of_contours:
         xmin = target_width
         ymin = result_image.shape[1]
         xmax = 0
