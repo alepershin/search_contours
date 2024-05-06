@@ -8,7 +8,7 @@ from PIL import ImageFont, ImageDraw, Image
 
 # Загружаем шрифт
 font_path = 'FreeSans.ttf'
-font = ImageFont.truetype(font_path, 24)
+font = ImageFont.truetype(font_path, 18)
 
 # Загрузка моделей
 model_28_28 = load_model('model_28_28.h5')
@@ -96,6 +96,8 @@ def predict_and_store_contours(image, contours):
         x, y, w, h = cv2.boundingRect(contour)  # Получим координаты контура
 
         symbol = classify_contour(contour, image)
+        if contains_cyrillic(symbol) and symbol != "Ответ":
+            continue
 
         # Сохраняем информацию в словарь
         contour_info = {
@@ -110,7 +112,10 @@ def predict_and_store_contours(image, contours):
     return predictions
 
 def contains_cyrillic(text):
-    return bool(re.search('[u0400-u04FF]', text))
+    for ch in [chr(i) for i in range(0x0400, 0x04FF)]:
+        if ch in text:
+            return True
+    return False
 
 def preprocess_image(image, threshold, target_width):
     # Сначала определим коэффициент масштабирования
