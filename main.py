@@ -42,7 +42,7 @@ models = {
     'model_112_28': (model_112_28, symbols_112x28),
 }
 
-def classify_contour(contour, image):
+def classify_contour(contour, image, confidence_threshold):
     x, y, w, h = cv2.boundingRect(contour)
     cropped_image = image[y:y+h, x:x+w]
     ratio = w / h
@@ -61,7 +61,6 @@ def classify_contour(contour, image):
         symbols = symbols_112x28
         model = model_112_28
 
-    # Вписываем изображение в выбранную "рамку"
     # Масштабируем изображение, сохраняя пропорции
     scale = min(frame_size[0] / w, frame_size[1] / h)
     new_size = (int(w * scale), int(h * scale))
@@ -85,18 +84,23 @@ def classify_contour(contour, image):
     prediction = model.predict(new_image)
     class_id = np.argmax(prediction)
 
-    # Получение соответствующего символа
-    ch = symbols.get(class_id, "") # Если class_id нет в словаре, вернется пустая строка
+    # Получаем вероятность
+    confidence = np.max(prediction)
+    if confidence > confidence_threshold:
+        # Получение соответствующего символа, если вероятность выше заданного порога
+        ch = symbols.get(class_id, "") # Если class_id нет в словаре, вернется пустая строка
+    else:
+        ch = ""
 
     return ch
 
-def predict_and_store_contours(image, contours):
+def predict_and_store_contours(image, contours, confidence_threshold):
     predictions = []  # Список для хранения информации о контурах и предсказаниях
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)  # Получим координаты контура
 
-        symbol = classify_contour(contour, image)
-        if contains_cyrillic(symbol) and symbol != "Ответ":
+        symbol = classify_contour(contour, image, confidence_threshold)
+        if (contains_cyrillic(symbol) and symbol != "Ответ") or symbol == "":
             continue
 
         # Сохраняем информацию в словарь
@@ -357,6 +361,8 @@ if uploaded_image:
     min_size = st.slider("Минимальный размер контура", 0, 20, 7)
     show_results_on_image = st.checkbox("Показать результат распознавания на картинке", value=False)
 
+    confidence_threshold = st.slider("Точность распознавания", 0.0, 1.0, 0.5)
+
     # Пользователь может задать ширину изображения
     target_width = st.slider("Ширина изображения", 400, image.shape[1], 1400)
     preprocessed_image = preprocess_image(image, threshold, target_width)
@@ -364,7 +370,7 @@ if uploaded_image:
     contours = detect_contours(preprocessed_image)
     filtered_contours = filter_contours_by_size(contours, min_size)
 
-    contour_predictions = predict_and_store_contours(preprocessed_image, filtered_contours)
+    contour_predictions = predict_and_store_contours(preprocessed_image, filtered_contours, confidence_threshold)
 
     new_predictions = replace_minus_with_equals(contour_predictions)
 
