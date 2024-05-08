@@ -100,7 +100,7 @@ def predict_and_store_contours(image, contours, confidence_threshold):
         x, y, w, h = cv2.boundingRect(contour)  # Получим координаты контура
 
         symbol = classify_contour(contour, image, confidence_threshold)
-        if (contains_cyrillic(symbol) and symbol != "Ответ") or symbol == "":
+        if (contains_cyrillic(symbol) and symbol != "Ответ") or symbol == "" or symbol == "[":
             continue
 
         # Сохраняем информацию в словарь
