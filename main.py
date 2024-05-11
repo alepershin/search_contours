@@ -347,6 +347,32 @@ def find_nearest_contour_right(current_contour, contour_predictions):
 
     return nearest_contour
 
+def block_recognition(line):
+    s = ''
+    # Сортировка контуров по координате x
+    line.sort(key=lambda item: (item['x'], item['y']))
+    i = 0
+    while i < len(line):
+        ch = line[i]['symbol']
+        if ch == '-':
+            numerator = ''
+            denominator = ''
+            j = i
+            while i < len(line) - 1:
+                if find_nearest_contour_below(line[i + 1], line) == line[j]:
+                    numerator += line[i + 1]['symbol']
+                    i += 1
+                elif find_nearest_contour_above(line[i + 1], line) == line[j]:
+                    denominator += line[i + 1]['symbol']
+                    i += 1
+                else:
+                    break
+            if numerator != '' and denominator != '':
+                ch = '(' + numerator + ')/(' + denominator + ')'
+        s += ch
+        i += 1
+    return s
+
 st.title("Проверка письменных работ по математике")
 
 uploaded_image = st.file_uploader("Загрузите изображение", type=["jpg", "jpeg", "png"])
@@ -387,13 +413,9 @@ if uploaded_image:
                 ymax = cnt['y'] + cnt['h']
         cv2.rectangle(preprocessed_image, (xmin, ymin), (xmax, ymax), (255, 255, 0), 2)
 
-    contour_predictions = []
-    new_lines = []
     for line in lines_of_contours:
-        new_line = replace_minus_with_equals(line)
-        new_lines.append(new_line)
-        for cnt in new_line:
-            contour_predictions.append(cnt)
+        s = block_recognition(line)
+        print(s)
 
     result_image = draw_rectangles(preprocessed_image, contour_predictions)
 
