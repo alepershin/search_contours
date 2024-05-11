@@ -175,16 +175,13 @@ def draw_rectangles(image, predictions):
     return result
 
 def replace_minus_with_equals(contour_predictions):
-    # Создаем копию списка, чтобы не изменять исходный
-    new_predictions = contour_predictions.copy()
-
     # Сортируем список сначала по горизонтали (x), затем по вертикали (y)
-    new_predictions.sort(key=lambda item: (item['x'], item['y']))
+    contour_predictions.sort(key=lambda item: (item['x'], item['y']))
 
     i = 0  # Инициализируем счётчик
-    while i < len(new_predictions) - 1:
-        current_item = new_predictions[i]
-        next_item = new_predictions[i + 1]
+    while i < len(contour_predictions) - 1:
+        current_item = contour_predictions[i]
+        next_item = contour_predictions[i + 1]
 
         # Проверяем, являются ли символы минусами
         if current_item['symbol'] == next_item['symbol'] == "-":
@@ -204,12 +201,12 @@ def replace_minus_with_equals(contour_predictions):
                 current_item['h'] = next_item['y'] - current_item['y'] + next_item['h']
 
                 # Удаляем второй "-" из списка
-                del new_predictions[i + 1]
+                del contour_predictions[i + 1]
                 # Не увеличиваем счетчик, так как второй минус был удален
                 continue
         i += 1  # Переходим к следующему элементу в списке
 
-    return new_predictions
+    return contour_predictions
 
 def filter_contours_by_size(contours, min_size):
     filtered_contours = []
@@ -372,19 +369,11 @@ if uploaded_image:
 
     contour_predictions = predict_and_store_contours(preprocessed_image, filtered_contours, confidence_threshold)
 
-    new_predictions = replace_minus_with_equals(contour_predictions)
-
-    result_image = draw_rectangles(preprocessed_image, new_predictions)
-
-    # Используем функцию для отрисовки результатов распознавания на изображении
-    if show_results_on_image:
-        result_image = draw_predictions_on_image(result_image, new_predictions, 'FreeSans.ttf')
-
-    lines_of_contours = group_by_lines(new_predictions)
+    lines_of_contours = group_by_lines(contour_predictions)
 
     for line in lines_of_contours:
         xmin = target_width
-        ymin = result_image.shape[1]
+        ymin = preprocessed_image.shape[1]
         xmax = 0
         ymax = 0
         for cnt in line:
@@ -396,7 +385,21 @@ if uploaded_image:
                 xmax = cnt['x'] + cnt['w']
             if cnt['y'] + cnt['h'] > ymax:
                 ymax = cnt['y'] + cnt['h']
-        cv2.rectangle(result_image, (xmin, ymin), (xmax, ymax), (255, 255, 0), 2)
+        cv2.rectangle(preprocessed_image, (xmin, ymin), (xmax, ymax), (255, 255, 0), 2)
+
+    contour_predictions = []
+    new_lines = []
+    for line in lines_of_contours:
+        new_line = replace_minus_with_equals(line)
+        new_lines.append(new_line)
+        for cnt in new_line:
+            contour_predictions.append(cnt)
+
+    result_image = draw_rectangles(preprocessed_image, contour_predictions)
+
+    # Используем функцию для отрисовки результатов распознавания на изображении
+    if show_results_on_image:
+        result_image = draw_predictions_on_image(result_image, contour_predictions, 'FreeSans.ttf')
 
     st.subheader("Контуры")
     st.image(result_image)
