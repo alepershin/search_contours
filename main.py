@@ -384,7 +384,7 @@ if uploaded_image:
     min_size = st.slider("Минимальный размер контура", 0, 20, 7)
     show_results_on_image = st.checkbox("Показать результат распознавания на картинке", value=False)
 
-    confidence_threshold = st.slider("Точность распознавания", 0.0, 1.0, 0.5)
+    confidence_threshold = st.slider("Точность распознавания", 0.0, 1.0, 0.4)
 
     # Пользователь может задать ширину изображения
     target_width = st.slider("Ширина изображения", 400, image.shape[1], 1400)
@@ -415,7 +415,7 @@ if uploaded_image:
 
     for line in lines_of_contours:
         s = block_recognition(line)
-        print(s)
+        cv2.putText(preprocessed_image, s, (line[0]['x'], line[0]['y']), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255))
 
     result_image = draw_rectangles(preprocessed_image, contour_predictions)
 
