@@ -356,19 +356,34 @@ def block_recognition(line):
         ch = line[i]['symbol']
         if ch == '-':
             numerator = ''
+            y_numerator, h_numerator = 0, 0
             denominator = ''
+            y_denominator, h_denominator = 0, 0
             j = i
             while i < len(line) - 1:
                 if find_nearest_contour_below(line[i + 1], line) == line[j]:
+                    if line[i + 1]['y'] + line[i + 1]['h'] < y_numerator + h_numerator / 2:
+                        numerator += "**"
                     numerator += line[i + 1]['symbol']
+                    y_numerator = line[i + 1]['y']
+                    h_numerator = line[i + 1]['h']
                     i += 1
                 elif find_nearest_contour_above(line[i + 1], line) == line[j]:
+                    if line[i + 1]['y'] + line[i + 1]['h'] < y_denominator + h_denominator / 2:
+                        denominator += "**"
                     denominator += line[i + 1]['symbol']
+                    y_denominator = line[i + 1]['y']
+                    h_denominator = line[i + 1]['h']
                     i += 1
                 else:
                     break
             if numerator != '' and denominator != '':
                 ch = '(' + numerator + ')/(' + denominator + ')'
+            elif numerator == '-' or denominator == '-':
+                ch = "="
+        elif i > 0:
+            if line[i]['y'] + line[i]['h'] < line[i - 1]['y'] + line[i - 1]['h'] / 2:
+                ch = "**" + ch
         s += ch
         i += 1
     return s
@@ -397,9 +412,11 @@ if uploaded_image:
 
     lines_of_contours = group_by_lines(contour_predictions)
 
+    result_image = draw_rectangles(preprocessed_image, contour_predictions)
+
     for line in lines_of_contours:
         xmin = target_width
-        ymin = preprocessed_image.shape[1]
+        ymin = result_image.shape[1]
         xmax = 0
         ymax = 0
         for cnt in line:
@@ -411,13 +428,11 @@ if uploaded_image:
                 xmax = cnt['x'] + cnt['w']
             if cnt['y'] + cnt['h'] > ymax:
                 ymax = cnt['y'] + cnt['h']
-        cv2.rectangle(preprocessed_image, (xmin, ymin), (xmax, ymax), (255, 255, 0), 2)
 
-    for line in lines_of_contours:
         s = block_recognition(line)
-        cv2.putText(preprocessed_image, s, (line[0]['x'], line[0]['y']), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255))
-
-    result_image = draw_rectangles(preprocessed_image, contour_predictions)
+        if s.find('=') != -1:
+            cv2.rectangle(result_image, (xmin, ymin), (xmax, ymax), (255, 255, 255), 1)
+            cv2.putText(result_image, s, (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     # Используем функцию для отрисовки результатов распознавания на изображении
     if show_results_on_image:
