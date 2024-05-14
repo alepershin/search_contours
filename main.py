@@ -50,6 +50,9 @@ def add_explicit_multiplication(equation_str):
     equation_str = re.sub(r'([a-zA-Z])(\d)', r'\1*\2', equation_str)
     # Поиск последовательных скобок и добавление знака умножения между ними
     equation_str = equation_str.replace(')(', ')*(')
+    # Поиск последовательности "x(" и ")x" и добавление знака умножения
+    equation_str = equation_str.replace('x(', 'x*(')
+    equation_str = equation_str.replace(')x', ')*x')
 
     return equation_str
 
