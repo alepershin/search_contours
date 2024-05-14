@@ -5,6 +5,7 @@ import re
 
 from keras.models import load_model
 from PIL import ImageFont, ImageDraw, Image
+from sympy import symbols, Eq, solve
 
 # Загружаем шрифт
 font_path = 'FreeSans.ttf'
@@ -41,6 +42,38 @@ models = {
     'model_56_28': (model_56_28, symbols_56x28),
     'model_112_28': (model_112_28, symbols_112x28),
 }
+
+def add_explicit_multiplication(equation_str):
+    # Поиск паттернов вида (цифра)(переменная) и добавление знака умножения
+    equation_str = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', equation_str)
+    # Поиск паттернов вида (переменная)(цифра) и добавление знака умножения (на случай, если переменная стоит перед цифрой)
+    equation_str = re.sub(r'([a-zA-Z])(\d)', r'\1*\2', equation_str)
+    # Поиск последовательных скобок и добавление знака умножения между ними
+    equation_str = equation_str.replace(')(', ')*(')
+
+    return equation_str
+
+def solve_equation(equation_str):
+    # Обработка строки уравнения для добавления явного знака умножения, если он пропущен
+    equation_str = add_explicit_multiplication(equation_str)
+
+    # Предполагаем, что у нас есть только одна переменная, которая обозначена как 'x'
+    x = symbols('x')
+
+    # Разделение строки уравнения на две части по знаку равенства
+    left_side, right_side = equation_str.split('=')
+
+    # Преобразование левой и правой частей уравнения в символьные выражения
+    left_expr = eval(left_side, {'x': x})
+    right_expr = eval(right_side, {'x': x})
+
+    # Создание уравнения
+    eq = Eq(left_expr, right_expr)
+
+    # Решение уравнения
+    solutions = solve(eq, x)
+
+    return solutions
 
 def classify_contour(contour, image, confidence_threshold):
     x, y, w, h = cv2.boundingRect(contour)
@@ -432,7 +465,12 @@ if uploaded_image:
         s = block_recognition(line)
         if s.find('=') != -1:
             cv2.rectangle(result_image, (xmin, ymin), (xmax, ymax), (255, 255, 255), 1)
-            cv2.putText(result_image, s, (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            try:
+                equation = solve_equation(s)
+            except:
+                equation = s
+
+            cv2.putText(result_image, str(equation), (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     # Используем функцию для отрисовки результатов распознавания на изображении
     if show_results_on_image:
