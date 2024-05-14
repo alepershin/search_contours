@@ -241,12 +241,12 @@ def replace_minus_with_equals(contour_predictions):
 
     return contour_predictions
 
-def filter_contours_by_size(contours, min_size):
+def filter_contours_by_size(contours, min_size, max_height):
     filtered_contours = []
     for contour in contours:
         _, _, w, h = cv2.boundingRect(contour)  # Получаем линейные размеры контура
         # Проверяем, соответствует ли контур заданным размерам
-        if w >= min_size or h >= min_size:
+        if (w >= min_size or h >= min_size) and h <= max_height:
             filtered_contours.append(contour)
     return filtered_contours
 
@@ -430,6 +430,7 @@ if uploaded_image:
 
     threshold = st.slider("Порог яркости", 0, 255, 128)
     min_size = st.slider("Минимальный размер контура", 0, 20, 7)
+    max_height = st.slider("Максимальная высота контура", 0, image.shape[0], 1200)
     show_results_on_image = st.checkbox("Показать результат распознавания на картинке", value=False)
 
     confidence_threshold = st.slider("Точность распознавания", 0.0, 1.0, 0.4)
@@ -439,7 +440,7 @@ if uploaded_image:
     preprocessed_image = preprocess_image(image, threshold, target_width)
 
     contours = detect_contours(preprocessed_image)
-    filtered_contours = filter_contours_by_size(contours, min_size)
+    filtered_contours = filter_contours_by_size(contours, min_size, max_height)
 
     contour_predictions = predict_and_store_contours(preprocessed_image, filtered_contours, confidence_threshold)
 
@@ -470,7 +471,7 @@ if uploaded_image:
             except:
                 equation = s
 
-            cv2.putText(result_image, str(equation), (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(result_image, str(equation), (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
 
     # Используем функцию для отрисовки результатов распознавания на изображении
     if show_results_on_image:
