@@ -60,6 +60,10 @@ def solve_equation(equation_str):
     # Обработка строки уравнения для добавления явного знака умножения, если он пропущен
     equation_str = add_explicit_multiplication(equation_str)
 
+    # Удаляем запятую справа, если она распознана как единица после нуля
+    if equation_str[-2:] == '01':
+        equation_str = equation_str[:-1]
+
     # Предполагаем, что у нас есть только одна переменная, которая обозначена как 'x'
     x = symbols('x')
 
@@ -76,7 +80,10 @@ def solve_equation(equation_str):
     # Решение уравнения
     solutions = solve(eq, x)
 
-    return solutions
+    # Фильтрация только действительных корней, исключая те, которые содержат мнимую единицу "I"
+    real_solutions = [sol for sol in solutions if "I" not in str(sol)]
+
+    return real_solutions
 
 def classify_contour(contour, image, confidence_threshold):
     x, y, w, h = cv2.boundingRect(contour)
@@ -468,7 +475,7 @@ if uploaded_image:
                 ymax = cnt['y'] + cnt['h']
 
         s = block_recognition(line)
-        if s.find('=') != -1:
+        if s.count('=') == 1:
             cv2.rectangle(result_image, (xmin, ymin), (xmax, ymax), (255, 255, 255), 1)
             try:
                 equation = solve_equation(s)
