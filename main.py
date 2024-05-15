@@ -480,7 +480,7 @@ if uploaded_image:
                 color = (0, 255, 255)
             else:
                 color = (255, 0, 0)
-            cv2.putText(result_image, str(equation), (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            cv2.putText(result_image, str(equation), (xmin, ymin - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
     # Используем функцию для отрисовки результатов распознавания на изображении
     if show_results_on_image:
