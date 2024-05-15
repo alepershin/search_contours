@@ -451,6 +451,7 @@ if uploaded_image:
 
     result_image = draw_rectangles(preprocessed_image, contour_predictions)
 
+    answer = ""
     for line in lines_of_contours:
         xmin = target_width
         ymin = result_image.shape[1]
@@ -471,10 +472,15 @@ if uploaded_image:
             cv2.rectangle(result_image, (xmin, ymin), (xmax, ymax), (255, 255, 255), 1)
             try:
                 equation = solve_equation(s)
+                if answer == "":
+                    answer = equation
             except:
                 equation = s
-
-            cv2.putText(result_image, str(equation), (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+            if equation == answer:
+                color = (0, 255, 255)
+            else:
+                color = (255, 0, 0)
+            cv2.putText(result_image, str(equation), (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
     # Используем функцию для отрисовки результатов распознавания на изображении
     if show_results_on_image:
