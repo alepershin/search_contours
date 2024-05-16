@@ -143,7 +143,7 @@ def predict_and_store_contours(image, contours, confidence_threshold):
         x, y, w, h = cv2.boundingRect(contour)  # Получим координаты контура
 
         symbol = classify_contour(contour, image, confidence_threshold)
-        if (contains_cyrillic(symbol) and symbol != "Ответ") or symbol == "" or symbol == "[":
+        if (contains_cyrillic(symbol) and symbol != "Ответ") or symbol == "":
             continue
 
         # Сохраняем информацию в словарь
@@ -269,6 +269,8 @@ def group_by_lines(contour_predictions):
     current_line_y = contour_predictions[0]['y'] + contour_predictions[0]['h']
 
     for item in contour_predictions:
+        if item['symbol'] == '[':
+            continue
         if item['y'] > current_line_y:
             # Начало новой строки
             lines.append([])
@@ -304,7 +306,7 @@ def find_nearest_contour_below(current_contour, contour_predictions):
         # Извлечение координат потенциального контура, который находится ниже
         x, y, w, h = contour['x'], contour['y'], contour['w'], contour['h']
         # Проверяем, что потенциальный контур находится ниже текущего
-        if y > current_bottom:
+        if y > current_y + current_h / 2:
             # Находим центры контуров по оси X
             current_center_x = current_x + current_w / 2
             contour_center_x = x + w / 2
@@ -330,7 +332,7 @@ def find_nearest_contour_above(current_contour, contour_predictions):
         x, y, w, h = contour['x'], contour['y'], contour['w'], contour['h']
         contour_bottom = y + h
         # Проверка, что потенциальный контур находится выше текущего
-        if contour_bottom < current_y:
+        if y + h / 2 < current_y:
             # Находим центры контуров по оси X
             current_center_x = current_x + current_w / 2
             contour_center_x = x + w / 2
@@ -357,7 +359,7 @@ def find_nearest_contour_left(current_contour, contour_predictions):
             x, y, w, h = contour['x'], contour['y'], contour['w'], contour['h']
             contour_right_edge = x + w
             # Проверка, что потенциальный контур находится слева от текущего
-            if contour_right_edge < current_left_edge:
+            if x <= current_left_edge:
                 # Вычисляем горизонтальное расстояние от текущего контура до правого края потенциального
                 distance = current_left_edge - contour_right_edge
                 # Проверка вертикального перекрытия на границе
@@ -459,6 +461,7 @@ if uploaded_image:
     result_image = draw_rectangles(preprocessed_image, contour_predictions)
 
     answer = ""
+    combination = None
     for line in lines_of_contours:
         xmin = target_width
         ymin = result_image.shape[1]
@@ -483,11 +486,33 @@ if uploaded_image:
                     answer = equation
             except:
                 equation = s
+
+            # Проверим есть ли слева знак совокупности
+            left_contour = find_nearest_contour_left(line[0], contour_predictions)
+            if left_contour != None and left_contour['symbol'] == '[':
+                if combination == None:
+                    combination = equation
+                else:
+                    combination = sorted(list(set(combination).union(set(equation))))
+                x_combination = left_contour['x']
+                y_combination = left_contour['y']
+            elif combination != None:
+
+                if str(combination) == str(answer):
+                    color = (0, 255, 255)
+                else:
+                    color = (255, 0, 0)
+
+                cv2.putText(result_image, str(combination), (x_combination, y_combination - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+                combination = None
+
             if equation == answer:
                 color = (0, 255, 255)
             else:
                 color = (255, 0, 0)
-            cv2.putText(result_image, str(equation), (xmin, ymin - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+            if combination == None:
+                cv2.putText(result_image, str(equation), (xmin, ymin - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
     # Используем функцию для отрисовки результатов распознавания на изображении
     if show_results_on_image:
