@@ -499,12 +499,10 @@ if uploaded_image:
                 x_combination = left_contour['x']
                 y_combination = left_contour['y']
             elif combination != None:
-
                 if str(combination) == str(answer):
                     color = (0, 255, 255)
                 else:
                     color = (255, 0, 0)
-
                 cv2.putText(result_image, str(combination), (x_combination, y_combination - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
                 combination = None
 
@@ -516,7 +514,7 @@ if uploaded_image:
             if combination == None:
                 cv2.putText(result_image, str(equation), (xmin, ymin - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
-        elif s[:3] == 'x1=':
+        elif s[:3] == 'x1=' or s[:3] == 'x2=':
             start_index = s.find('=')
             end_index = s.find('=', start_index + 1)
             result = s[start_index + 1:end_index]
@@ -538,35 +536,9 @@ if uploaded_image:
             cv2.rectangle(result_image, (xmin, ymin), (xmax, ymax), (255, 255, 255), 1)
 
             if result in set(answer):
-                cv2.putText(result_image, 'x1=' + str(result), (xmin, ymin - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                cv2.putText(result_image, s[:3] + str(result), (xmin, ymin - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
             else:
-                cv2.putText(result_image, 'x1=' + str(result), (xmin, ymin - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-
-        elif s[:3] == 'x2=':
-            start_index = s.find('=')
-            end_index = s.find('=', start_index + 1)
-            result = s[start_index + 1:end_index]
-
-            # Преобразуем строку в AST (абстрактное синтаксическое дерево)
-            tree = ast.parse(result, mode='eval')
-
-            # Компилируем AST в исполняемый код
-            code_obj = compile(tree, '', 'eval')
-
-            # Выполняем код и получаем результат
-            result = eval(code_obj)
-
-            # Проверяем, является ли результат целым числом
-            if result.is_integer():
-                # Если да, выводим его как целое число
-                result = int(result)
-
-            cv2.rectangle(result_image, (xmin, ymin), (xmax, ymax), (255, 255, 255), 1)
-
-            if result in set(answer):
-                cv2.putText(result_image, 'x2=' + str(result), (xmin, ymin - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-            else:
-                cv2.putText(result_image, 'x2=' + str(result), (xmin, ymin - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                cv2.putText(result_image, s[:3] + str(result), (xmin, ymin - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
 
     # Используем функцию для отрисовки результатов распознавания на изображении
     if show_results_on_image:
