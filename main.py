@@ -50,6 +50,9 @@ def add_explicit_multiplication(equation_str):
     equation_str = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', equation_str)
     # Поиск паттернов вида (переменная)(цифра) и добавление знака умножения (на случай, если переменная стоит перед цифрой)
     equation_str = re.sub(r'([a-zA-Z])(\d)', r'\1*\2', equation_str)
+    # Поиск паттернов вида (цифра)(скобка) и добавление знака умножения
+    equation_str = re.sub(r'(\d)(\()', r'\1*\2', equation_str)
+
     # Поиск последовательных скобок и добавление знака умножения между ними
     equation_str = equation_str.replace(')(', ')*(')
     # Поиск последовательности "x(" и ")x" и добавление знака умножения
@@ -442,12 +445,12 @@ uploaded_image = st.file_uploader("Загрузите изображение", t
 if uploaded_image:
     image = cv2.imdecode(np.frombuffer(uploaded_image.read(), np.uint8), cv2.IMREAD_COLOR)
 
-    threshold = st.slider("Порог яркости", 0, 255, 128)
-    min_size = st.slider("Минимальный размер контура", 0, 20, 7)
+    threshold = st.slider("Порог яркости", 0, 255, 140)
+    min_size = st.slider("Минимальный размер контура", 0, 20, 14)
     max_height = st.slider("Максимальная высота контура", 0, image.shape[0], 1200)
     show_results_on_image = st.checkbox("Показать результат распознавания на картинке", value=False)
 
-    confidence_threshold = st.slider("Точность распознавания", 0.0, 1.0, 0.4)
+    confidence_threshold = st.slider("Точность распознавания", 0.0, 1.0, 0.34)
 
     # Пользователь может задать ширину изображения
     target_width = st.slider("Ширина изображения", 400, image.shape[1], 1400)
